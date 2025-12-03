@@ -2,10 +2,9 @@ package com.blackshark.hidperipheral
 
 import android.bluetooth.BluetoothHidDevice
 import android.content.Context
-import android.os.Handler
 import android.text.TextUtils
 import java.util.*
-import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.*
 import kotlin.experimental.and
 import kotlin.experimental.inv
 import kotlin.experimental.or
@@ -19,8 +18,9 @@ object HidConsts {
     @JvmField
     var HidDevice: BluetoothHidDevice? = null
 
-    private var handler: Handler? = null
-    private val inputReportQueue: Queue<HidReport> = ConcurrentLinkedQueue()
+    @Volatile
+    private var reporterThread: Thread? = null
+    private val inputReportQueue: BlockingQueue<HidReport> = LinkedBlockingQueue()
     var ModifierByte: Byte = 0x00
     var KeyByte: Byte = 0x00
     fun cleanKbd() {
@@ -35,19 +35,21 @@ object HidConsts {
         }
     }
 
-    var scheperoid: Long = 5
-    fun reporters(context: Context) {
-        handler = Handler(context.mainLooper)
-        Timer().scheduleAtFixedRate(object : TimerTask() {
-            override fun run() {
-                val report = inputReportQueue.poll()
-                if (report != null) {
+    fun reporters() {
+        if (reporterThread?.isAlive == true) return
+
+        reporterThread = Thread {
+            try {
+                while (!Thread.currentThread().isInterrupted) {
+                    val report = inputReportQueue.take()
                     if (HidUtils.isConnected()) {
                         postReport(report)
                     }
                 }
+            } catch (e: InterruptedException) {
+                // Thread interrupted, exit cleanly
             }
-        }, 0, scheperoid)
+        }.apply { start() }
     }
 
     private fun postReport(report: HidReport) {

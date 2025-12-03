@@ -76,7 +76,7 @@ class MainActivity : AppCompatActivity(), HidUtils.ConnectionStateChangeListener
 
     private fun start() {
         HidUtils.registerApp(applicationContext)
-        HidConsts.reporters(applicationContext)
+        HidConsts.reporters()
         HidUtils.connectionStateChangeListener = this
     }
 
